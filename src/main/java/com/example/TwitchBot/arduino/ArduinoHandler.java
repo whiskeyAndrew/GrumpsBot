@@ -16,25 +16,25 @@ import javax.annotation.PostConstruct;
 @Component
 public class ArduinoHandler {
 
-    Arduino arduino;
-    @PostConstruct
-    public void init(){
-        arduino = new Arduino("COM4", 9600);
-
-        try {
-            boolean connected = arduino.openConnection();
-            System.out.println("Соединение установлено");
-        }
-        catch (Exception e){
-            System.out.println("No connection with arduino");
-        }
-
-
-    }
-
-    public void changeColor() throws InterruptedException{
-        System.out.println("Изменяю цвет");
-        arduino.serialWrite('1');
-    }
+//    Arduino arduino;
+//    @PostConstruct
+//    public void init(){
+//        arduino = new Arduino("COM4", 9600);
+//
+//        try {
+//            boolean connected = arduino.openConnection();
+//            System.out.println("Соединение установлено");
+//        }
+//        catch (Exception e){
+//            System.out.println("No connection with arduino");
+//        }
+//
+//
+//    }
+//
+//    public void changeColor() throws InterruptedException{
+//        System.out.println("Изменяю цвет");
+//        arduino.serialWrite('1');
+//    }
 
 }

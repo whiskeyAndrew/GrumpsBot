@@ -1,17 +1,18 @@
-package com.example.TwitchBot.repository;
+package com.example.TwitchBot.services;
 
 import com.example.TwitchBot.entity.Cucumber;
+import com.example.TwitchBot.repository.CucumberRepo;
 import lombok.RequiredArgsConstructor;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Repository;
+import org.springframework.stereotype.Service;
 
 import javax.transaction.Transactional;
 import java.time.Instant;
 
-@Repository
 @Transactional
 @RequiredArgsConstructor
-public class CucumberRepository{
+@Service
+public class CucumberService {
     private final CucumberRepo jpa;
 
     public Cucumber findByName(String channelName){

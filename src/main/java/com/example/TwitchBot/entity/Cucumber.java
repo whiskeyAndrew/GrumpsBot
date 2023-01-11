@@ -13,7 +13,7 @@ import java.time.Instant;
 @Entity
 @AllArgsConstructor
 @NoArgsConstructor
-@Table(name = "cucumber",schema = "public")
+@Table(name = "cucumber")
 public class Cucumber {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)

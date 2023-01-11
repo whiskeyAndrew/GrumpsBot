@@ -27,11 +27,8 @@ public class FollowEvent extends Thread{
         twitchClient.getPubSub().listenForFollowingEvents(twitchClientConfig.getCredential(), twitchClientConfig.getChannelId());
         twitchClient.getEventManager().onEvent(FollowingEvent.class, followingEvent -> {
             System.out.println("new follower");
-            try {
-                arduinoHandler.changeColor();
-            } catch (InterruptedException e) {
-                throw new RuntimeException(e);
-            }
+
+
         });
     }
 }

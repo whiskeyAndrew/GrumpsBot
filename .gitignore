@@ -35,4 +35,4 @@ build/
 
 ### PROJECT ###
 /PostgreSQL/cucumber.txt
-src/main/resources/application.properties
+/src/main/resources/application.properties
