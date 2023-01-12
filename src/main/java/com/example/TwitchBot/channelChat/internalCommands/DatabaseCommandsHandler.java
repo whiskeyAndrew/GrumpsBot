@@ -24,9 +24,6 @@ public class DatabaseCommandsHandler {
         Command command = new Command();
 
         try {
-            if(message.contains("ban")){
-                return "Приветы ты че ахуел  AREYOUAGIRL ";
-            }
             List<String> stringList = Arrays.asList(message.split(" "));
             List<String> params = new ArrayList<>();
             command.setCommandName(stringList.get(1));
