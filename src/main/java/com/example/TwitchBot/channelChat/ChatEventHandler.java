@@ -1,21 +1,31 @@
 package com.example.TwitchBot.channelChat;
 
 import com.example.TwitchBot.channelChat.internalCommands.DatabaseCommandsHandler;
+import com.example.TwitchBot.channelInfo.ChannelFollowers;
 import com.example.TwitchBot.config.TwitchClientConfig;
 import com.example.TwitchBot.entity.Command;
-import com.example.TwitchBot.entity.Cucumber;
-import com.example.TwitchBot.services.CucumberService;
+import com.example.TwitchBot.entity.Follower;
+import com.example.TwitchBot.entity.Iq;
+import com.example.TwitchBot.services.FollowerService;
+import com.example.TwitchBot.services.IqService;
 import com.example.TwitchBot.services.DatabaseCommandsService;
 import com.github.twitch4j.TwitchClient;
 import com.github.twitch4j.chat.events.channel.ChannelMessageEvent;
 import com.github.twitch4j.common.enums.CommandPermission;
+import com.github.twitch4j.common.events.domain.EventUser;
+import com.github.twitch4j.helix.domain.UserList;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import lombok.Setter;
 import org.springframework.stereotype.Component;
 
 import javax.annotation.PostConstruct;
+import java.io.UnsupportedEncodingException;
+import java.net.MalformedURLException;
 import java.time.Instant;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.List;
 
 @Component
 @Setter
@@ -23,19 +33,26 @@ import java.time.Instant;
 @RequiredArgsConstructor
 public class ChatEventHandler extends Thread {
 
-    private final static int MAX_CUCUMBER_SIZE = 25;
-    private final static int MIN_CUCUMBER_SIZE = 3;
+
+    private final ChannelFollowers channelFollowers;
+
+    private final static int MAX_IQ = 200;
+    private final static int MIN_IQ = 3;
 
     private final DatabaseCommandsHandler dataBaseCommandsHandler;
     private final DatabaseCommandsService databaseCommandsService;
     private final TwitchClient twitchClient;
     private final TwitchClientConfig twitchClientConfig;
 
-    private final CucumberService cucumberService;
+    private final IqService iqService;
+    private final FollowerService followerService;
+    private final static int MESSAGE_TIMEOUT_EVERYONE = 1;
+    Instant lastMessageTime;
 
     @PostConstruct
-    private void initStart() {
+    private void initStart() throws MalformedURLException, UnsupportedEncodingException {
         start();
+        lastMessageTime = Instant.now();
     }
 
     @Override
@@ -44,27 +61,43 @@ public class ChatEventHandler extends Thread {
         twitchClient.getEventManager().onEvent(ChannelMessageEvent.class, event -> {
             System.out.println("[" + event.getChannel().getName() + "][" + event.getPermissions().toString() + "] " + event.getUser().getName() + ": " + event.getMessage());
 
+            //Подержать какое-то время, проверяет есть ли в бд фолловерах человек
+            if(!followerService.isFollowerExistsById(Long.parseLong(event.getUser().getId()))){
+                UserList resultList = twitchClient.getHelix().getUsers(twitchClientConfig.getChannelTokenAccess(), Collections.singletonList(event.getUser().getId()), null).execute();
+                resultList.getUsers().forEach(user -> {
+                    Follower follower = new Follower( Long.parseLong(user.getId()), user.getDisplayName(),user.getDisplayName(),true,Instant.EPOCH,0,Instant.EPOCH);
+                    followerService.insertNewFollower(follower);
+                });
+            }
+
             //Команда в БД
             String[] words = event.getMessage().split(" ");
             if(databaseCommandsService.isCommandExists(words[0])){
                 Command command = databaseCommandsService.getCommandByName(words[0]);
-                sendMessageToChannelChat(command.getCommandAnswer());
+                if(event.getPermissions().contains(command.getPermissionLevel())) {
+                    sendMessageToChannelChat(command.getCommandAnswer(), CommandPermission.EVERYONE);
+                }else{
+                    System.out.println("No access to command");
+                }
+
                 return;
             }
-
+            if(event.getMessage().startsWith("!дебаг")){
+                channelFollowers.updateFollowersDB();
+                return;
+            }
             if (event.getMessage().startsWith("SoCute")) {
-                sendMessageToChannelChat("SoCute SoCute SoCute SoCute SoCute SoCute");
+                sendMessageToChannelChat("SoCute SoCute SoCute SoCute SoCute SoCute",CommandPermission.EVERYONE);
                 return;
             }
 
             if(event.getMessage().startsWith(DatabaseCommandsHandler.ADD_NEW_COMMAND)){
                 if(event.getPermissions().contains(CommandPermission.MODERATOR)) {
-                    sendMessageToChannelChat(dataBaseCommandsHandler.addNewCommand(event.getMessage()));
+                    sendMessageToChannelChat(dataBaseCommandsHandler.addNewCommand(event.getMessage()),CommandPermission.EVERYONE);
                 }
                 return;
             }
 
-            //Пофиксить, сделать метод возвращаемый с ответом
             if(event.getMessage().startsWith(DatabaseCommandsHandler.DELETE_COMMAND)){
                 if(event.getPermissions().contains(CommandPermission.MODERATOR)) {
                     if (dataBaseCommandsHandler.deleteCommand(event.getMessage())) {
@@ -76,10 +109,14 @@ public class ChatEventHandler extends Thread {
                 return;
             }
 
-            //Надеюсь это никто не увидит
-            if (event.getMessage().startsWith("!биба")) {
-                handleCucumberMessage(event);
+            if (event.getMessage().startsWith("!iq") || event.getMessage().startsWith("!айкью")) {
+                handleIqMessage(event);
                 return;
+            }
+
+            if(event.getMessage().startsWith("!карма")){
+                 handleKarmaMessage(event.getMessage(), event.getUser());
+                 return;
             }
 
             if (event.getMessage().startsWith("!кубик")) {
@@ -88,47 +125,96 @@ public class ChatEventHandler extends Thread {
                 if (size == 0) {
                     size = 1;
                 }
-                sendMessageToChannelChat("Бросок кубика! Выпадает: " + size);
+                sendMessageToChannelChat("Бросок кубика! Выпадает: " + size,CommandPermission.EVERYONE);
                 return;
             }
         });
     }
 
-    void handleCucumberMessage(ChannelMessageEvent event) {
-        Cucumber cucumber = cucumberService.findByName(event.getUser().getName());
+    void handleKarmaMessage(String message, EventUser user){
 
-        if (cucumber == null) {
-            cucumber = cucumberService.insertCucumber(new Cucumber(null, event.getUser().getName(),
-                    Instant.now(), (int) Math.floor(Math.random() * (MAX_CUCUMBER_SIZE - 5 + 1) + 5)));
-            sendMessageToChannelChat("@"+event.getUser().getName() +" Вау! Линейка показывает " + cucumber.getSize() + " сантиметров! С первым замером! PepegaAim");
+        List<String> strings = List.of(message.split(" "));
+        Follower follower =  followerService.findById(Long.valueOf(user.getId()));
+        if(strings.size()==1){
+            sendMessageToChannelChat("@"+user.getName() +", твоя карма сейчас: "+ follower.getKarma() ,CommandPermission.EVERYONE);
+            return;
+        } else if(strings.size() != 3){
+            return;
+        }
+
+        if(follower.getChangedSomeonesKarmaLastTime().plusSeconds(1800).isAfter(Instant.now())){
+            sendMessageToChannelChat("Карму можно давать только раз в полчаса!",CommandPermission.EVERYONE);
+            return;
+        }
+        if(follower.getDisplayName().equalsIgnoreCase(strings.get(1).replaceAll("@",""))){
+            sendMessageToChannelChat("Ты что, пытался изменить себе карму???  Susge",CommandPermission.EVERYONE);
+            return;
+        }
+        Follower followerToChangeKarma = followerService.findByDisplayName(strings.get(1).replaceAll("@",""));
+        if(followerToChangeKarma==null){
+            sendMessageToChannelChat("Таких людей в фолловерах у нас нет!",CommandPermission.EVERYONE);
+            return;
+        }
+
+        follower.setChangedSomeonesKarmaLastTime(Instant.now());
+        followerService.saveFollower(follower);
+        if(strings.get(2).equals("+")) {
+            followerToChangeKarma.setKarma(followerToChangeKarma.getKarma() + 1);
+        } else if(strings.get(2).equals("-")){
+            followerToChangeKarma.setKarma(followerToChangeKarma.getKarma() - 1);
+        }
+        followerService.saveFollower(followerToChangeKarma);
+        sendMessageToChannelChat("Карма "+ followerToChangeKarma.getDisplayName() + " изменена!",CommandPermission.EVERYONE);
+
+    }
+    void handleIqMessage(ChannelMessageEvent event) {
+        Iq iq = iqService.findByName(event.getUser().getName());
+
+        if (iq == null) {
+            iq = iqService.insertCucumber(new Iq(null, event.getUser().getName(),
+                    Instant.now(), (int) Math.floor(MIN_IQ + (int) (Math.random() * (MAX_IQ )))));
+            sendMessageToChannelChat("@"+event.getUser().getName() +" Вау! Твой айкью сегодня " + iq.getSize() + "! С первым замером! PepegaAim",CommandPermission.EVERYONE);
             return;
         } else {
-            if (cucumber.getTime().plusSeconds(86400).isAfter(Instant.now())) {
-                sendMessageToChannelChat("@"+event.getUser().getName() +" Ежедневный замер уже был! NOPERS Линейка показывала " + cucumber.getSize() + " сантиметров!");
+            if (iq.getTime().plusSeconds(86400).isAfter(Instant.now())) {
+                sendMessageToChannelChat("@"+event.getUser().getName() +" Ежедневный замер айкью уже был! NOPERS Айкьюметр показывал " + iq.getSize() + "!",CommandPermission.EVERYONE);
                 return;
             } else {
-                int size = cucumber.getSize();
-                cucumber.setSize((int) Math.floor(Math.random() * (MAX_CUCUMBER_SIZE - MIN_CUCUMBER_SIZE + 1) + MIN_CUCUMBER_SIZE));
-                cucumber = cucumberService.updateCucumber(cucumber);
+                int size = iq.getSize();
+                iq.setSize((int) Math.floor(Math.random() * (MAX_IQ - MIN_IQ + 1) + MIN_IQ));
+                iq = iqService.updateCucumber(iq);
 
-                if (cucumber.getSize() == MAX_CUCUMBER_SIZE) {
-                    sendMessageToChannelChat("@"+event.getUser().getName() +" Нифига себе! Линейка показывает " + cucumber.getSize() + " сантиметров! Дальше расти некуда! peepoClap");
+                if (iq.getSize() == MAX_IQ) {
+                    sendMessageToChannelChat("@"+event.getUser().getName() +" Нифига себе! Айкьюметр показывает " + iq.getSize() + "! Дальше расти некуда! peepoClap",CommandPermission.EVERYONE);
                     return;
                 }
 
-                if (size < cucumber.getSize()) {
-                    sendMessageToChannelChat("@"+event.getUser().getName() +" Вау! Линейка показывает " + cucumber.getSize() + " сантиметров! Ты подрос! widepeepoHappy ");
-                } else if (size > cucumber.getSize()) {
-                    sendMessageToChannelChat("@"+event.getUser().getName() +" Мнда. Стало хуже. Линейка показывает " + cucumber.getSize() + " сантиметров!  А было "+size+" widepeepoSad");
+                if (size < iq.getSize()) {
+                    sendMessageToChannelChat("@"+event.getUser().getName() +" Вау! Айкьюметр показывает " + iq.getSize() + "! Ты стал умнее! widepeepoHappy ",CommandPermission.EVERYONE);
+                } else if (size > iq.getSize()) {
+                    sendMessageToChannelChat("@"+event.getUser().getName() +" Мнда. Ты расслабился. Айкьюметр показывает " + iq.getSize() + "!  А было "+size+" widepeepoSad",CommandPermission.EVERYONE);
                 } else {
-                    sendMessageToChannelChat("@"+event.getUser().getName() +" Линейка показывает " + cucumber.getSize() + " сантиметров. Ничего не поменялось !  peepoGiggles");
+                    sendMessageToChannelChat("@"+event.getUser().getName() +" Айкьюметр показывает " + iq.getSize() + ". Ничего не поменялось !  peepoGiggles",CommandPermission.EVERYONE);
                 }
             }
         }
 
     }
 
-    void sendMessageToChannelChat(String message){
+    public void sendMessageToChannelChat(String message, CommandPermission messageSentBy){
+        if(message.startsWith("/")){
+            return;
+        }
+        if(lastMessageTime.plusSeconds(MESSAGE_TIMEOUT_EVERYONE).isAfter(Instant.now())){
+            if(messageSentBy.ordinal()<CommandPermission.VIP.ordinal()){
+                return;
+            }
+        }
+        lastMessageTime = Instant.now();
+        twitchClient.getChat().sendMessage(twitchClientConfig.getChannelName(), message);
+    }
+
+    public void sendMessageToChatIgnoreTimer(String message){
         if(message.startsWith("/")){
             return;
         }

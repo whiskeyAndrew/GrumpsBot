@@ -2,7 +2,7 @@ HELP.md
 target/
 !.mvn/wrapper/maven-wrapper.jar
 !**/src/main/**/target/
-!**/src/cucumber/**/target/
+!**/src/iq/**/target/
 
 ### STS ###
 .apt_generated
@@ -27,12 +27,12 @@ target/
 /.nb-gradle/
 build/
 !**/src/main/**/build/
-!**/src/cucumber/**/build/
+!**/src/iq/**/build/
 
 ### VS Code ###
 .vscode/
 
 
 ### PROJECT ###
-/PostgreSQL/cucumber.txt
+/PostgreSQL/iq.txt
 /src/main/resources/application.properties

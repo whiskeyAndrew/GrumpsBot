@@ -1,5 +1,6 @@
 package com.example.TwitchBot.entity;
 
+import com.github.twitch4j.common.enums.CommandPermission;
 import lombok.*;
 
 import javax.persistence.*;
@@ -18,7 +19,7 @@ public class Command {
     private Long id;
     private String commandName;
     private String commandAnswer;
-    private Integer permissionLevel;
+    private CommandPermission permissionLevel;
     private Integer cooldown;
 
 }

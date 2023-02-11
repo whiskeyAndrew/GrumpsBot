@@ -14,8 +14,8 @@ import java.util.List;
 public class DatabaseCommandsService {
     private final DatabaseCommandsRepo jpa;
 
-    public Boolean isCommandExists(String channelName){
-        return jpa.existsCommandByCommandName(channelName);
+    public Boolean isCommandExists(String commandName){
+        return jpa.existsCommandByCommandName(commandName);
     }
     public List<Command> getAllCommands(){
         return jpa.findAll();

@@ -1,8 +1,8 @@
 package com.example.TwitchBot.channelChat.internalCommands;
 
 import com.example.TwitchBot.entity.Command;
-import com.example.TwitchBot.services.CucumberService;
 import com.example.TwitchBot.services.DatabaseCommandsService;
+import com.github.twitch4j.common.enums.CommandPermission;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
@@ -19,7 +19,7 @@ public class DatabaseCommandsHandler {
     public final static String EDIT_COMMAND = "!editCommand ";
 
 
-    public String addNewCommand(String message){
+    public String addNewCommand(String message) {
 
         Command command = new Command();
 
@@ -29,7 +29,7 @@ public class DatabaseCommandsHandler {
             command.setCommandName(stringList.get(1));
             StringBuilder commandAnswer = new StringBuilder();
 
-            command.setPermissionLevel(0);
+            command.setPermissionLevel(CommandPermission.EVERYONE);
             command.setCooldown(1000);
 
             if (!message.contains("\\%")) {
@@ -55,20 +55,26 @@ public class DatabaseCommandsHandler {
 
                 for (int i = 0; i < params.size(); i++) {
                     if (params.get(i).contains("\\%perm")) {
-                        command.setPermissionLevel(Integer.parseInt(params.get(i).replaceAll("\\D+", "")));
+                        if (params.get(i).contains("MODERATOR")) {
+                            command.setPermissionLevel(CommandPermission.MODERATOR);
+                        } else if (params.get(i).contains("VIP")) {
+                            command.setPermissionLevel(CommandPermission.VIP);
+                        } else if (params.get(i).contains("SUBSCRIBER")) {
+                            command.setPermissionLevel(CommandPermission.SUBSCRIBER);
+                        } else {
+                            command.setPermissionLevel(CommandPermission.values()[Integer.parseInt(params.get(i).replaceAll("\\D+", ""))]);
+                        }
                     }
                     if (params.get(i).contains("\\%cd")) {
                         command.setCooldown(Integer.parseInt(params.get(i).replaceAll("\\D+", "")));
                     }
                 }
-
             }
-
 
             if (command.getCommandAnswer().length() == 0) {
                 return "Отсутствует ответ";
             }
-            if (command.getPermissionLevel() > 5 || command.getPermissionLevel()<0) {
+            if (command.getPermissionLevel().ordinal() > CommandPermission.OWNER.ordinal()) {
                 return "Неправильный уровень доступа";
             }
             if (command.getCooldown() < 0) {
@@ -81,7 +87,7 @@ public class DatabaseCommandsHandler {
             }
 
             return "Команда была добавлена!";
-        } catch (Exception e){
+        } catch (Exception e) {
             return "Команда не была добавлена";
         }
 
@@ -92,7 +98,7 @@ public class DatabaseCommandsHandler {
             String[] messageList = message.split(" ");
             databaseCommandsService.deleteCommandByName(messageList[1]);
             return true;
-        }catch (Exception e){
+        } catch (Exception e) {
             return false;
         }
     }
