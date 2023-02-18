@@ -23,6 +23,9 @@ public class DuelistStats {
 
     private Integer wins;
     private Integer loses;
+    private Integer winstreak;
+    @Column(name = "winstreak_max")
+    private Integer winstreakMax;
 
 
 }

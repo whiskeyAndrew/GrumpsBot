@@ -198,7 +198,8 @@ public class ChatEventHandler extends Thread {
     void handleDuelMessageStat(ChannelMessageEvent event) {
         DuelistStats duelist = duelistStatService.getAllByUserId(Long.valueOf(event.getUser().getId()));
         sendMessageToChannelChat("@" + duelist.getFollower().getDisplayName() + " побед в дуэли: " +
-                +duelist.getWins() + ", проигрышей: " + duelist.getLoses(), CommandPermission.EVERYONE);
+                +duelist.getWins() + ", проигрышей: " + duelist.getLoses() + ", побед подряд: "
+                +duelist.getWinstreak()+", лучшая серия побед: " + duelist.getWinstreakMax(), CommandPermission.EVERYONE);
     }
 
     void handleDuelMessage(ChannelMessageEvent event) {
@@ -233,12 +234,24 @@ public class ChatEventHandler extends Thread {
                     sendAdminMessage("/timeout " + duelistTwo.getFollower().getDisplayName() + " 60 ПРОИГРАЛ В ДУЭЛЬ");
                     duelistOne.setWins(duelistOne.getWins() + 1);
                     duelistTwo.setLoses(duelistTwo.getLoses() + 1);
+                    duelistOne.setWinstreak(duelistOne.getWinstreak()+1);
+                    if(duelistOne.getWinstreakMax()<duelistOne.getWinstreak()){
+                        duelistOne.setWinstreakMax(duelistOne.getWinstreak());
+                    }
+
+                    duelistTwo.setWinstreak(0);
                 } else {
                     sendMessageToChatIgnoreTimer("@" + duelistTwo.getFollower().getDisplayName() + " делает выстрел первым! " +
                             "@" + duelistOne.getFollower().getDisplayName() + " падает замертво  DIESOFCRINGE ");
                     sendAdminMessage("/timeout " + duelistOne.getFollower().getDisplayName() + " 60 ПРОИГРАЛ В ДУЭЛЬ");
                     duelistTwo.setWins(duelistTwo.getWins() + 1);
                     duelistOne.setLoses(duelistOne.getLoses() + 1);
+                    duelistTwo.setWinstreak(duelistTwo.getWinstreak()+1);
+                    if(duelistTwo.getWinstreakMax()<duelistTwo.getWinstreak()){
+                        duelistTwo.setWinstreakMax(duelistTwo.getWinstreak());
+                    }
+
+                    duelistOne.setWinstreak(0);
                 }
                 firstDuelistTriesToFindSomeoneTime = Instant.EPOCH;
                 duelistStatService.saveDuelistStats(duelistOne);
