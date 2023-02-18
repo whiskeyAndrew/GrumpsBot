@@ -1,6 +1,6 @@
 package com.example.TwitchBot.channelEvents;
 
-import com.example.TwitchBot.NotWorking.arduino.ArduinoHandler;
+//import com.example.TwitchBot.NotWorking.arduino.ArduinoHandler;
 import com.example.TwitchBot.channelChat.ChatEventHandler;
 import com.example.TwitchBot.config.TwitchClientConfig;
 import com.example.TwitchBot.entity.Follower;
@@ -20,7 +20,7 @@ public class FollowEvent extends Thread{
     private final FollowerService followerService;
     private final TwitchClient twitchClient;
     private final TwitchClientConfig twitchClientConfig;
-    private final ArduinoHandler arduinoHandler;
+//    private final ArduinoHandler arduinoHandler;
     private final ChatEventHandler chatEventHandler;
     private final static Integer HELLO_QUOTES_COUNT = 5;
     @PostConstruct
