@@ -1,0 +1,22 @@
+{
+  "name": "twitchbot",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/whiskeyAndrew/javaTwitchBot.git"
+  },
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/whiskeyAndrew/javaTwitchBot/issues"
+  },
+  "homepage": "https://github.com/whiskeyAndrew/javaTwitchBot#readme",
+  "dependencies": {
+    "tmi.js": "^1.8.5"
+  }
+}
