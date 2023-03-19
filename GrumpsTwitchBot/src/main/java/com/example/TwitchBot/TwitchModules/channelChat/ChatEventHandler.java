@@ -107,19 +107,14 @@ public class ChatEventHandler extends Thread {
                 return;
             }
 
-            /*
-            if(event.getMessage().contains("вебк") || event.getMessage().contains("камер"))
-            {
-                sendMessageToChannelChat("Стримлер отдыхает", CommandPermission.EVERYONE);
-                return;
-            }
-*/
-
             if (event.getMessage().startsWith("SoCute")) {
                 sendMessageToChannelChat("SoCute SoCute SoCute SoCute SoCute SoCute", CommandPermission.EVERYONE);
                 return;
             }
-
+            if (event.getMessage().contains("ГУСЯ") || event.getMessage().contains("ГУСЕЙ")){
+                twitchClient.getHelix().deleteChatMessages(twitchClientConfig.getChannelTokenAccess(),event.getChannel().getId(),event.getChannel().getId(), event.getMessageEvent().getMessageId().orElse(null)).execute();
+                sendMessageToChannelChat("peepoMop УБИРАЮ peepoMop ЕБУЧИХ peepoMop ГУСЕЙ peepoMop",CommandPermission.EVERYONE);
+            }
             if (event.getMessage().startsWith(DatabaseCommandsHandler.ADD_NEW_COMMAND)) {
                 if (event.getPermissions().contains(CommandPermission.MODERATOR)) {
                     sendMessageToChannelChat(dataBaseCommandsHandler.addNewCommand(event.getMessage()), CommandPermission.EVERYONE);

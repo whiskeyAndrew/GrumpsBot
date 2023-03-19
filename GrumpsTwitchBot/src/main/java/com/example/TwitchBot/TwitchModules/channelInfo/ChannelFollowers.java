@@ -3,12 +3,8 @@ package com.example.TwitchBot.TwitchModules.channelInfo;
 import com.example.TwitchBot.config.TwitchClientConfig;
 import com.github.twitch4j.TwitchClient;
 import com.github.twitch4j.helix.domain.FollowList;
-import com.netflix.hystrix.HystrixCommand;
 import lombok.RequiredArgsConstructor;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
-
-import javax.annotation.PostConstruct;
 
 @Component
 @RequiredArgsConstructor

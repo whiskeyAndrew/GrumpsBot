@@ -35,6 +35,7 @@ public class TwitchClientConfig {
     @Value("${channel.id}")
     private String channelId;
 
+    private String botNameToId = "868301861";
     @Value("${channel.name}")
     private String channelName;
     OAuth2Credential credential;
