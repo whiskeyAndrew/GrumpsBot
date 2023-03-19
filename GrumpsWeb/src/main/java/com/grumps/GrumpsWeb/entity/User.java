@@ -1,20 +1,20 @@
-/* package com.grumps.GrumpsWeb.entity;
+package com.grumps.GrumpsWeb.entity;
 
 import jakarta.persistence.*;
-import lombok.Getter;
-import lombok.Setter;
-import org.springframework.data.annotation.Id;
+import lombok.*;
 
 import java.time.Instant;
 
+@Entity
 @Getter
 @Setter
-@Entity
-@Table(name="web_users")
+@Table(name = "web_users")
+@Builder
+@AllArgsConstructor
+@NoArgsConstructor
 public class User {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    @Column(name = "id")
     private Long id;
     private String username;
     private String password;
@@ -24,4 +24,4 @@ public class User {
     @Column(name = "registration_date")
     private Instant registrationDate;
 }
-*/
+
