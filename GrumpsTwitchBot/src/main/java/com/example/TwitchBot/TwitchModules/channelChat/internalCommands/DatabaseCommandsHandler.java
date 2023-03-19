@@ -1,4 +1,4 @@
-package com.example.TwitchBot.channelChat.internalCommands;
+package com.example.TwitchBot.TwitchModules.channelChat.internalCommands;
 
 import com.example.TwitchBot.entity.Command;
 import com.example.TwitchBot.services.DatabaseCommandsService;

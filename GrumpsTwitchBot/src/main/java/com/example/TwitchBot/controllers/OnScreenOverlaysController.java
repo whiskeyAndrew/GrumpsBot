@@ -1,6 +1,6 @@
 package com.example.TwitchBot.controllers;
 
-import com.example.TwitchBot.channelEvents.TwitchPointsEvents;
+import com.example.TwitchBot.TwitchModules.channelEvents.TwitchPointsEvents;
 import com.example.TwitchBot.entity.OnScreenOverlayData;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -8,10 +8,6 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
-
-import javax.annotation.PostConstruct;
-import java.util.ArrayDeque;
-import java.util.Queue;
 
 @RestController
 @RequestMapping(value = "/alerts")

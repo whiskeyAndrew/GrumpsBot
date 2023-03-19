@@ -1,4 +1,4 @@
-package com.example.TwitchBot.channelInfo;
+package com.example.TwitchBot.TwitchModules.channelInfo;
 
 //@Component
 //public class ChannelModerators {

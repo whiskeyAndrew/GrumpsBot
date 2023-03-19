@@ -1,7 +1,7 @@
-package com.example.TwitchBot.channelChat;
+package com.example.TwitchBot.TwitchModules.channelChat;
 
-import com.example.TwitchBot.channelChat.internalCommands.DatabaseCommandsHandler;
-import com.example.TwitchBot.channelInfo.ChannelFollowers;
+import com.example.TwitchBot.TwitchModules.channelInfo.ChannelFollowers;
+import com.example.TwitchBot.TwitchModules.channelChat.internalCommands.DatabaseCommandsHandler;
 import com.example.TwitchBot.config.TwitchClientConfig;
 import com.example.TwitchBot.entity.Command;
 import com.example.TwitchBot.entity.DuelistStats;

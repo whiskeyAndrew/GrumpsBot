@@ -1,4 +1,4 @@
-package com.example.TwitchBot.channelInfo;
+package com.example.TwitchBot.TwitchModules.channelInfo;
 
 import com.example.TwitchBot.config.TwitchClientConfig;
 import com.github.twitch4j.TwitchClient;

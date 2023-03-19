@@ -1,19 +1,17 @@
-package com.example.TwitchBot.channelEvents;
+package com.example.TwitchBot.TwitchModules.channelEvents;
 
-import com.example.TwitchBot.channelChat.ChatEventHandler;
+import com.example.TwitchBot.TwitchModules.channelChat.ChatEventHandler;
 import com.example.TwitchBot.config.TwitchClientConfig;
 import com.example.TwitchBot.entity.OnScreenOverlayData;
 import com.github.twitch4j.TwitchClient;
 import com.github.twitch4j.pubsub.events.RewardRedeemedEvent;
 import lombok.RequiredArgsConstructor;
-import net.bytebuddy.implementation.bind.annotation.This;
 import org.springframework.stereotype.Component;
 
 import javax.annotation.PostConstruct;
 import java.io.IOException;
 import java.util.ArrayDeque;
 import java.util.Deque;
-import java.util.Queue;
 
 @Component
 @RequiredArgsConstructor

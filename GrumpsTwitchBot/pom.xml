@@ -9,10 +9,10 @@
 		<relativePath/> <!-- lookup parent from repository -->
 	</parent>
 	<groupId>com.example</groupId>
-	<artifactId>TwitchBot</artifactId>
+	<artifactId>GrumpsTwitchBot</artifactId>
 	<version>0.0.1-SNAPSHOT</version>
-	<name>TwitchBot</name>
-	<description>Demo project for Spring Boot</description>
+	<name>GrumpsTwitchBot</name>
+	<description>TwitchBot</description>
 	<properties>
 		<java.version>17</java.version>
 	</properties>

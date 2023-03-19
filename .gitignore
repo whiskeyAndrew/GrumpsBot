@@ -38,3 +38,4 @@ build/
 /src/main/resources/application.properties
 GrumpsWeb/src/main/resources/application.properties
 GrumpsBot/src/main/resources/application.properties
+GrumpsTwitchBot/src/main/resources/application.properties

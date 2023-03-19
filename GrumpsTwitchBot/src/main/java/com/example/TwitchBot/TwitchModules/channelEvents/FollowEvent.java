@@ -1,7 +1,7 @@
-package com.example.TwitchBot.channelEvents;
+package com.example.TwitchBot.TwitchModules.channelEvents;
 
 //import com.example.TwitchBot.NotWorking.arduino.ArduinoHandler;
-import com.example.TwitchBot.channelChat.ChatEventHandler;
+import com.example.TwitchBot.TwitchModules.channelChat.ChatEventHandler;
 import com.example.TwitchBot.config.TwitchClientConfig;
 import com.example.TwitchBot.entity.Follower;
 import com.example.TwitchBot.services.FollowerService;
