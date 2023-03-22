@@ -21,4 +21,6 @@ public class Iq {
     private String channelName;
     private Instant time;
     private Integer size;
+    @Column(name = "is_locked")
+    private Boolean isLocked;
 }

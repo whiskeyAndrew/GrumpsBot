@@ -80,6 +80,7 @@ public class ChatEventHandler extends Thread {
 
             //Подержать какое-то время, проверяет есть ли в бд фолловерах человек
             if (!followerService.isFollowerExistsById(Long.parseLong(event.getUser().getId()))) {
+                //Добавить проверку на изменение имени
                 UserList resultList = twitchClient.getHelix().getUsers(twitchClientConfig.getChannelTokenAccess(), Collections.singletonList(event.getUser().getId()), null).execute();
                 resultList.getUsers().forEach(user -> {
                     Follower follower = new Follower(Long.parseLong(user.getId()), user.getDisplayName(), user.getDisplayName(), true, Instant.EPOCH, 0, Instant.EPOCH);
@@ -111,8 +112,8 @@ public class ChatEventHandler extends Thread {
                 sendMessageToChannelChat("SoCute SoCute SoCute SoCute SoCute SoCute", CommandPermission.EVERYONE);
                 return;
             }
-            if (event.getMessage().contains("ГУСЯ") || event.getMessage().contains("ГУСЕЙ")){
-                twitchClient.getHelix().deleteChatMessages(twitchClientConfig.getChannelTokenAccess(),event.getChannel().getId(),event.getChannel().getId(), event.getMessageEvent().getMessageId().orElse(null)).execute();
+            if (event.getMessage().contains("ГУС") || event.getMessage().contains("ГYС")){
+                twitchClient.getHelix().deleteChatMessages(twitchClientConfig.getBotTokenAccess(),event.getChannel().getId(),twitchClientConfig.getBotNameToId(), event.getMessageEvent().getMessageId().orElse(null)).execute();
                 sendMessageToChannelChat("peepoMop УБИРАЮ peepoMop ЕБУЧИХ peepoMop ГУСЕЙ peepoMop",CommandPermission.EVERYONE);
             }
             if (event.getMessage().startsWith(DatabaseCommandsHandler.ADD_NEW_COMMAND)) {
@@ -138,6 +139,14 @@ public class ChatEventHandler extends Thread {
                 handleIqMessageNow(event);
                 return;
             }
+
+            /*
+            if (event.getMessage().startsWith("!iq lock")){
+
+                return;
+            }
+            */
+
             if (event.getMessage().startsWith("!iq") || event.getMessage().startsWith("!айкью")) {
                 handleIqMessage(event);
                 return;
@@ -180,8 +189,8 @@ public class ChatEventHandler extends Thread {
             return;
         }
 
-        if (follower.getChangedSomeonesKarmaLastTime().plusSeconds(1800).isAfter(Instant.now())) {
-            sendMessageToChannelChat("Карму можно давать только раз в полчаса!", CommandPermission.EVERYONE);
+        if (follower.getChangedSomeonesKarmaLastTime().plusSeconds(600).isAfter(Instant.now())) {
+            sendMessageToChannelChat("Карму можно давать только раз в десять минут!", CommandPermission.EVERYONE);
             return;
         }
         if (follower.getDisplayName().equalsIgnoreCase(strings.get(1).replaceAll("@", ""))) {
@@ -303,12 +312,13 @@ public class ChatEventHandler extends Thread {
         Iq iq = iqService.findByName(event.getUser().getName());
 
         if (iq == null) {
+            Integer newIq = (int) Math.floor(MIN_IQ + (int) (Math.random() * (MAX_IQ)));
             iq = iqService.insertCucumber(new Iq(null, event.getUser().getName(),
-                    Instant.now(), (int) Math.floor(MIN_IQ + (int) (Math.random() * (MAX_IQ)))));
+                    Instant.now(), newIq,false));
             sendMessageToChannelChat("@" + event.getUser().getName() + " Вау! Твой айкью сегодня " + iq.getSize() + "! С первым замером! PepegaAim", CommandPermission.EVERYONE);
             return;
         } else {
-            if (iq.getTime().plusSeconds(86400).isAfter(Instant.now())) {
+            if (iq.getTime().plusSeconds(48200).isAfter(Instant.now())) {
                 sendMessageToChannelChat("@" + event.getUser().getName() + " Ежедневный замер айкью уже был! NOPERS Айкьюметр показывал " + iq.getSize() + "!", CommandPermission.EVERYONE);
                 return;
             } else {
