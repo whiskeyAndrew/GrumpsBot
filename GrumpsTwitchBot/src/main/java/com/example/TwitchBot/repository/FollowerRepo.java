@@ -5,7 +5,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 
 public interface FollowerRepo extends JpaRepository<Follower,Long> {
 
-    Follower findFirstById(Long id);
-    Follower findFirstByDisplayName(String displayName);
-    Boolean existsFollowerById(Long id);
+    Follower findFirstByUserId(Long userId);
+    Follower findFirstByLogin(String login);
+    Boolean existsFollowerByUserId(Long id);
 }

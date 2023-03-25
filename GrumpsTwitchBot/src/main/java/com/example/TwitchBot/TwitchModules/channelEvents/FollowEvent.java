@@ -35,51 +35,47 @@ public class FollowEvent extends Thread{
         twitchClient.getEventManager().onEvent(FollowingEvent.class, followingEvent -> {
             System.out.println("new follower");
             String response = chooseRandomQuoteToSayHelloToNewFollower(followingEvent.getData());
+
             if(response!="") {
                 chatEventHandler.sendMessageToChatIgnoreTimer(response);
+                followerService.saveFollower(new Follower(Long.parseLong(followingEvent.getData().getUserId()),
+                        followingEvent.getData().getUsername(),
+                        followingEvent.getData().getDisplayName(),
+                        Instant.now()));
             }
         });
     }
 
     private String chooseRandomQuoteToSayHelloToNewFollower(FollowingData followerData){
         String quote = "";
-        Follower follower = followerService.findById(Long.parseLong(followerData.getUserId()));
-        if(follower!=null){
-            return quote;
-        } else {
-            follower = new Follower(Long.parseLong(followerData.getUserId()),
-                    followerData.getDisplayName(),
-                    followerData.getUsername(),
-                    true,
-                    Instant.now(),
-                    0,
-            Instant.EPOCH);
+        if (followerService.isFollowerExistsById(Long.valueOf(followerData.getUserId()))){
+            return "";
         }
+        String followerName = followerData.getDisplayName();
         Integer quoteNumber = (int) Math.floor(1 + (int) (Math.random() * (HELLO_QUOTES_COUNT )));
         switch (quoteNumber){
             case 1:{
-                    quote = "К нам залетает @" + follower.getDisplayName() + "! Даровенечки! wideVIBE";
+                    quote = "К нам залетает @" + followerName + "! Даровенечки! wideVIBE";
                 break;
             }
             case 2:{
-                quote = "Хоп, хоп, хоп, кто к нам присоединяется? Да это же  @" + follower.getDisplayName() + "! Приветики!  ratJAM ";
+                quote = "Хоп, хоп, хоп, кто к нам присоединяется? Да это же  @" + followerName+ "! Приветики!  ratJAM ";
                 break;
             }
             case 3:{
-                quote = "Кто тут у нас впервые? Это же @" + follower.getDisplayName() + "! Скажем привяо!  pepeJAM TeaTime ";
+                quote = "Кто тут у нас впервые? Это же @" + followerName + "! Скажем привяо!  pepeJAM TeaTime ";
                 break;
             }
             case 4:{
-                quote = "Только пришел, @" + follower.getDisplayName() + "? Отлично! Присаживайся к нам!   blanketJam ";
+                quote = "Только пришел, @" + followerName + "? Отлично! Присаживайся к нам!   blanketJam ";
                 break;
             }
             case 5:{
-                quote = "В дверь с ноги влетает @" + follower.getDisplayName() + "! kiryuArrive";
+                quote = "В дверь с ноги влетает @" + followerName + "! kiryuArrive";
                 break;
             }
 
         }
-        followerService.insertNewFollower(follower);
         return quote;
     }
 }

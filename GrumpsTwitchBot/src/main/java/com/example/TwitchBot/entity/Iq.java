@@ -12,15 +12,18 @@ import java.time.Instant;
 @Entity
 @AllArgsConstructor
 @NoArgsConstructor
-@Table(name = "cucumber")
+@Table(name = "iq")
 public class Iq {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "id")
     private Long id;
-    private String channelName;
+    @ManyToOne
+    @JoinColumn(name = "user_id")
+    private Follower follower;
+    private Integer iq;
+    @Column(name = "last_time_updated")
     private Instant time;
-    private Integer size;
     @Column(name = "is_locked")
     private Boolean isLocked;
 }

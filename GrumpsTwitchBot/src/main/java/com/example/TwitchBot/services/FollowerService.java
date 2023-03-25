@@ -13,8 +13,8 @@ import javax.transaction.Transactional;
 public class FollowerService {
     private final FollowerRepo jpa;
 
-    public Follower findById(Long id){return jpa.findFirstById(id);};
-    public Follower findByDisplayName(String displayName){return jpa.findFirstByDisplayName(displayName);}
+    public Follower findById(Long id){return jpa.findFirstByUserId(id);};
+    public Follower findByDisplayName(String login){return jpa.findFirstByLogin(login);}
 
     public Follower insertNewFollower(Follower follower){
         return jpa.saveAndFlush(follower);
@@ -23,5 +23,5 @@ public class FollowerService {
     public Follower saveFollower(Follower follower){
         return jpa.save(follower);
     }
-    public Boolean isFollowerExistsById(Long id){return jpa.existsFollowerById(id);}
+    public Boolean isFollowerExistsById(Long id){return jpa.existsFollowerByUserId(id);}
 }

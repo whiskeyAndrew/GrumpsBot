@@ -19,10 +19,10 @@ public class DuelistStatService {
     private final FollowerRepo followerJpa;
 
     public DuelistStats getAllByUserId(Long userId){
-        Follower follower = followerJpa.findFirstById(userId);
+        Follower follower = followerJpa.findFirstByUserId(userId);
         Optional<DuelistStats> d =jpa.getDuelistStatsByFollower(follower);
         if(!d.isPresent()){
-            DuelistStats newDuelist = new DuelistStats(null,follower,0,0,0,0);
+            DuelistStats newDuelist = new DuelistStats(null, follower,0,0,0,0);
             jpa.saveAndFlush(newDuelist);
             return newDuelist;
         }

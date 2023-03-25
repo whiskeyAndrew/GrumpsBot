@@ -13,20 +13,21 @@ import java.time.Instant;
 @Service
 public class IqService {
     private final IqRepo jpa;
-
-    public Iq findByName(String channelName){
-        return jpa.findFirstByChannelName(channelName);
+    private final FollowerService followerService;
+    public Iq getIqEntityByUserId(Long id){
+        return jpa.getByFollower(followerService.findById(id));
     }
-
-    public Iq insertCucumber(Iq iq){
+    public Iq insertIqEntity(Iq iq){
         return jpa.saveAndFlush(iq);
     }
 
-    public Iq updateCucumber(Iq iq){
-        Iq iqToUpdate = jpa.getCucumberByChannelName(iq.getChannelName());
+
+    public Iq updateIqEntity(Iq iq){
+        Iq iqToUpdate = jpa.getByFollower(iq.getFollower());
         iqToUpdate.setTime(Instant.now());
-        iqToUpdate.setSize(iq.getSize());
+        iqToUpdate.setIq(iq.getIq());
         return jpa.save(iqToUpdate);
     }
+
 
 }
