@@ -18,6 +18,7 @@ import com.github.twitch4j.helix.domain.BanUserInput;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import lombok.Setter;
+import lombok.extern.slf4j.Slf4j;
 import org.jetbrains.annotations.NotNull;
 import org.springframework.stereotype.Component;
 
@@ -26,11 +27,15 @@ import javax.annotation.PreDestroy;
 import java.io.UnsupportedEncodingException;
 import java.net.MalformedURLException;
 import java.time.Instant;
+import java.time.ZoneId;
+import java.time.ZonedDateTime;
+import java.time.temporal.ChronoUnit;
 
 @Component
 @Setter
 @Getter
 @RequiredArgsConstructor
+@Slf4j
 public class ChatEventHandler extends Thread {
     private final ChannelFollowers channelFollowers;
 
@@ -70,8 +75,8 @@ public class ChatEventHandler extends Thread {
 
     @Override
     public void run() {
-        System.out.println("STARTED LISTENING CHANNEL");
-
+        log.info("Started listening for channel chat");
+        twitchClient.getChat().sendMessage(twitchClientConfig.getChannelName(), "@dieorpie Я ПОДНЯЛСЯ!");
         twitchClient.getEventManager().onEvent(ChannelMessageEvent.class, event -> {
             System.out.println("[" + event.getChannel().getName() + "][" + event.getPermissions().toString() + "] "
                     + event.getUser().getName() + ": " + event.getMessage());
@@ -91,6 +96,14 @@ public class ChatEventHandler extends Thread {
 
                 return;
 
+            }
+
+            if (event.getMessage().startsWith("!ftm")){
+                Instant userFollowed =  followerService.findById(Long.parseLong(event.getUser().getId())).getFollowedAt();
+                ZonedDateTime dateTime = userFollowed.atZone(ZoneId.systemDefault());
+                Long daysFollowed = userFollowed.until(Instant.now(),ChronoUnit.DAYS);
+                String answer = "Ты у нас с " +dateTime.getDayOfMonth() +"."+dateTime.getMonth().getValue()+"."+  dateTime.getYear() + " ("+daysFollowed+" days) ";
+                sendMessageToChannelChat(answer,CommandPermission.EVERYONE);
             }
             if (event.getMessage().startsWith("бан мне")){
                 sendMessageToChannelChat("ладно",CommandPermission.EVERYONE);
@@ -210,6 +223,7 @@ public class ChatEventHandler extends Thread {
 
     }
 */
+
     void handleDuelMessageStat(ChannelMessageEvent event) {
         DuelistStats duelist = duelistStatService.getAllByUserId(Long.valueOf(event.getUser().getId()));
         sendMessageToChannelChat("@" + duelist.getFollower().getUsername() + " побед в дуэли: " +

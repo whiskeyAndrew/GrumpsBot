@@ -56,7 +56,6 @@ public class TwitchClientConfig {
                 .build();
 
         twitchClient.getChat().joinChannel(channelName);
-        twitchClient.getChat().sendMessage(channelName, "@dieorpie Я ПОДНЯЛСЯ!");
         return twitchClient;
     }
 

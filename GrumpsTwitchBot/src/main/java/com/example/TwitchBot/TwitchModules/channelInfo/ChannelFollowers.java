@@ -8,6 +8,7 @@ import com.github.twitch4j.helix.domain.Follow;
 import com.github.twitch4j.helix.domain.FollowList;
 import com.github.twitch4j.helix.domain.HelixPagination;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
 import javax.annotation.PostConstruct;
@@ -17,6 +18,7 @@ import java.util.List;
 
 @Component
 @RequiredArgsConstructor
+@Slf4j
 public class ChannelFollowers {
     private final TwitchClient twitchClient;
     private final TwitchClientConfig twitchClientConfig;
@@ -25,6 +27,7 @@ public class ChannelFollowers {
     @PostConstruct
     public void init(){
         followers = new ArrayList<>();
+        updateFollowersDB();
     }
     public void updateFollowersDB(){
         String pagination = null;
@@ -40,6 +43,6 @@ public class ChannelFollowers {
 
         followers.forEach(e->followerService.saveFollower(new Follower(Long.parseLong(e.getFromId()),e.getFromLogin(),e.getFromName(),e.getFollowedAtInstant())));
         followerService.saveFollower(new Follower(Long.parseLong(twitchClientConfig.getChannelId()),"dieorpie","Dieorpie", Instant.EPOCH));
-        System.out.println("thats all folks");
+        log.info("Updated Followers DB");
     }
 }

@@ -31,7 +31,7 @@ public class TwitchPointsEvents extends Thread{
 
     public OnScreenOverlayData getLastToShowElement(){
         assert toShowQueue.peek() != null;
-        System.out.println("ahaha");
+        //System.out.println("ahaha");
         if(toShowQueue.size()!=0) {
             return toShowQueue.pop();
         }

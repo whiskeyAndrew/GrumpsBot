@@ -9,6 +9,7 @@ import com.github.twitch4j.TwitchClient;
 import com.github.twitch4j.pubsub.domain.FollowingData;
 import com.github.twitch4j.pubsub.events.FollowingEvent;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
 import javax.annotation.PostConstruct;
@@ -16,6 +17,7 @@ import java.time.Instant;
 
 @Component
 @RequiredArgsConstructor
+@Slf4j
 public class FollowEvent extends Thread{
     private final FollowerService followerService;
     private final TwitchClient twitchClient;
@@ -29,11 +31,9 @@ public class FollowEvent extends Thread{
     }
 
     public void run(){
-        System.out.println("Started listening for new followers");
-
         twitchClient.getPubSub().listenForFollowingEvents(twitchClientConfig.getCredential(), twitchClientConfig.getChannelId());
+        log.info("Ready to wait for new followers");
         twitchClient.getEventManager().onEvent(FollowingEvent.class, followingEvent -> {
-            System.out.println("new follower");
             String response = chooseRandomQuoteToSayHelloToNewFollower(followingEvent.getData());
 
             if(response!="") {
