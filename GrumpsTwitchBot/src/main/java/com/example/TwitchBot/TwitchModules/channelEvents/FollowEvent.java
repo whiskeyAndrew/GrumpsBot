@@ -4,7 +4,9 @@ package com.example.TwitchBot.TwitchModules.channelEvents;
 import com.example.TwitchBot.TwitchModules.channelChat.ChatEventHandler;
 import com.example.TwitchBot.config.TwitchClientConfig;
 import com.example.TwitchBot.entity.Follower;
+import com.example.TwitchBot.entity.Karma;
 import com.example.TwitchBot.services.FollowerService;
+import com.example.TwitchBot.services.KarmaService;
 import com.github.twitch4j.TwitchClient;
 import com.github.twitch4j.pubsub.domain.FollowingData;
 import com.github.twitch4j.pubsub.events.FollowingEvent;
@@ -20,6 +22,7 @@ import java.time.Instant;
 @Slf4j
 public class FollowEvent extends Thread{
     private final FollowerService followerService;
+    private final KarmaService karmaService;
     private final TwitchClient twitchClient;
     private final TwitchClientConfig twitchClientConfig;
 //    private final ArduinoHandler arduinoHandler;
@@ -38,10 +41,13 @@ public class FollowEvent extends Thread{
 
             if(response!="") {
                 chatEventHandler.sendMessageToChatIgnoreTimer(response);
-                followerService.saveFollower(new Follower(Long.parseLong(followingEvent.getData().getUserId()),
+                Follower newFollower = new Follower(Long.parseLong(followingEvent.getData().getUserId()),
                         followingEvent.getData().getUsername(),
                         followingEvent.getData().getDisplayName(),
-                        Instant.now()));
+                        Instant.now());
+                followerService.saveFollower(newFollower);
+
+                karmaService.addNewKarmaEntity(newFollower);
             }
         });
     }

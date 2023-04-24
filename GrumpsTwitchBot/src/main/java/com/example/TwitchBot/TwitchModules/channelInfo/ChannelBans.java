@@ -19,3 +19,6 @@ package com.example.TwitchBot.TwitchModules.channelInfo;
 //        return bannedUserList;
 //    }
 //}
+
+
+//twitchClient.getHelix().getBannedUsers(twitchClientConfig.getChannelTokenAccess(), twitchClientConfig.getChannelId(), null, null, null).execute().getResults().forEach(System.out::println);

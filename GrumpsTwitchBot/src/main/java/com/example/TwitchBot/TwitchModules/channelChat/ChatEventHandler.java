@@ -3,14 +3,9 @@ package com.example.TwitchBot.TwitchModules.channelChat;
 import com.example.TwitchBot.TwitchModules.channelInfo.ChannelFollowers;
 import com.example.TwitchBot.TwitchModules.channelChat.internalCommands.DatabaseCommandsHandler;
 import com.example.TwitchBot.config.TwitchClientConfig;
-import com.example.TwitchBot.entity.Command;
-import com.example.TwitchBot.entity.DuelistStats;
-import com.example.TwitchBot.entity.Follower;
-import com.example.TwitchBot.entity.Iq;
-import com.example.TwitchBot.services.DuelistStatService;
-import com.example.TwitchBot.services.FollowerService;
-import com.example.TwitchBot.services.IqService;
-import com.example.TwitchBot.services.DatabaseCommandsService;
+import com.example.TwitchBot.entity.*;
+import com.example.TwitchBot.repository.KarmaRepo;
+import com.example.TwitchBot.services.*;
 import com.github.twitch4j.TwitchClient;
 import com.github.twitch4j.chat.events.channel.ChannelMessageEvent;
 import com.github.twitch4j.common.enums.CommandPermission;
@@ -26,18 +21,26 @@ import javax.annotation.PostConstruct;
 import javax.annotation.PreDestroy;
 import java.io.UnsupportedEncodingException;
 import java.net.MalformedURLException;
+import java.security.Permission;
 import java.time.Instant;
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
 import java.time.temporal.ChronoUnit;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
 
+//В идеале бы бОльшую часть кода раскидать по сервисам отсюда, к примеру обработку IQ или Karma сообщений стоило бы перекинуть на сервисы
+//Но я поздновато об этом подумал и времени пока нет рефакторить, оставлю возможно на потом
 @Component
 @Setter
 @Getter
 @RequiredArgsConstructor
 @Slf4j
 public class ChatEventHandler extends Thread {
+    private final KarmaRepo karmaRepo;
     private final ChannelFollowers channelFollowers;
+    private final DBTablesHandler dbTablesHandler;
 
     //Logic Staff
     private final DatabaseCommandsHandler dataBaseCommandsHandler;
@@ -46,6 +49,7 @@ public class ChatEventHandler extends Thread {
     private final TwitchClientConfig twitchClientConfig;
     private final FollowerService followerService;
     private final DuelistStatService duelistStatService;
+    private final KarmaService karmaService;
     private final static int MESSAGE_TIMEOUT_EVERYONE = 1;
     //Timeout, need to prevent chat spam from bot (maybe not working right now)
     Instant lastMessageTime;
@@ -81,7 +85,7 @@ public class ChatEventHandler extends Thread {
             System.out.println("[" + event.getChannel().getName() + "][" + event.getPermissions().toString() + "] "
                     + event.getUser().getName() + ": " + event.getMessage());
 
-            if(isHandlingDuel){
+            if (isHandlingDuel) {
                 return;
             }
             //Команда в БД
@@ -98,29 +102,36 @@ public class ChatEventHandler extends Thread {
 
             }
 
-            if (event.getMessage().startsWith("!ftm")){
-                Instant userFollowed =  followerService.findById(Long.parseLong(event.getUser().getId())).getFollowedAt();
+            if (event.getMessage().startsWith("!ftm")) {
+                Follower follower = followerService.findById(Long.parseLong(event.getUser().getId()));
+                if (follower == null) {
+                    return;
+                }
+
+                Instant userFollowed = follower.getFollowedAt();
                 ZonedDateTime dateTime = userFollowed.atZone(ZoneId.systemDefault());
-                Long daysFollowed = userFollowed.until(Instant.now(),ChronoUnit.DAYS);
-                String answer = "Ты у нас с " +dateTime.getDayOfMonth() +"."+dateTime.getMonth().getValue()+"."+  dateTime.getYear() + " ("+daysFollowed+" days) ";
-                sendMessageToChannelChat(answer,CommandPermission.EVERYONE);
+                Long daysFollowed = userFollowed.until(Instant.now(), ChronoUnit.DAYS);
+                String answer = "@" + event.getUser().getName() + " у нас с " + dateTime.getDayOfMonth() + "." + dateTime.getMonth().getValue() + "." + dateTime.getYear() + " (" + daysFollowed + " days) ";
+                sendMessageToChannelChat(answer, CommandPermission.EVERYONE);
             }
-            if (event.getMessage().startsWith("бан мне")){
-                sendMessageToChannelChat("ладно",CommandPermission.EVERYONE);
-                banUserByBot(event.getUser().getId(),60,"Попросил самобан");
+            if (event.getMessage().startsWith("бан мне")) {
+                sendMessageToChannelChat("ладно", CommandPermission.EVERYONE);
+                banUserByBot(event.getUser().getId(), 60, "Попросил самобан");
             }
-            if (event.getMessage().startsWith("!дебаг")) {
-                channelFollowers.updateFollowersDB();
+            if (event.getMessage().startsWith("!rebase")) {
+
+                if (event.getPermissions().contains(CommandPermission.MODERATOR)) {
+                    handleRebaseMessage(event);
+                }
                 return;
             }
-
             if (event.getMessage().startsWith("SoCute")) {
                 sendMessageToChannelChat("SoCute SoCute SoCute SoCute SoCute SoCute", CommandPermission.EVERYONE);
                 return;
             }
-            if (event.getMessage().contains("ГУС") || event.getMessage().contains("ГYС")){
-                twitchClient.getHelix().deleteChatMessages(twitchClientConfig.getBotTokenAccess(),event.getChannel().getId(),twitchClientConfig.getBotNameToId(), event.getMessageEvent().getMessageId().orElse(null)).execute();
-                sendMessageToChannelChat("peepoMop УБИРАЮ peepoMop ЕБУЧИХ peepoMop ГУСЕЙ peepoMop",CommandPermission.EVERYONE);
+            if (event.getMessage().contains("ГУС") || event.getMessage().contains("ГYС")) {
+                deleteMessageFromChat(event);
+                sendMessageToChannelChat("peepoMop УБИРАЮ peepoMop ЕБУЧИХ peepoMop ГУСЕЙ peepoMop", CommandPermission.EVERYONE);
             }
             if (event.getMessage().startsWith(DatabaseCommandsHandler.ADD_NEW_COMMAND)) {
                 if (event.getPermissions().contains(CommandPermission.MODERATOR)) {
@@ -159,7 +170,8 @@ public class ChatEventHandler extends Thread {
             }
 
             if (event.getMessage().startsWith("!карма")) {
-                sendMessageToChannelChat("Карма временно оффнута",CommandPermission.EVERYONE);
+                //sendMessageToChannelChat("Карма временно оффнута",CommandPermission.EVERYONE);
+                handleKarmaMessaage(event);
                 //handleKarmaMessage(event.getMessage(), event.getUser());
                 return;
             }
@@ -224,11 +236,123 @@ public class ChatEventHandler extends Thread {
     }
 */
 
+    void handleKarmaMessaage(ChannelMessageEvent event) {
+        List<String> message = new ArrayList<>(List.of(event.getMessage().split(" ")));
+
+        if (message.size() == 1) {
+            Follower follower = followerService.findById(Long.valueOf(event.getUser().getId()));
+            if (follower == null) {
+                sendMessageToChannelChat("@" + event.getUser().getName() + ", я тебя не знаю  PepeCringe ", CommandPermission.EVERYONE);
+            }
+            Karma karmaUser = karmaService.findByFollower(follower);
+            if (karmaUser == null) {
+                karmaService.addNewKarmaEntity(follower);
+            } else {
+                sendMessageToChannelChat("@" + karmaUser.getFollower().getUsername() + ", твоя карма сейчас: " + karmaUser.getKarma().toString(), CommandPermission.EVERYONE);
+            }
+        } else if (message.size() == 2) {
+            String userToGetKarmaName = message.get(1);
+            if (userToGetKarmaName.contains("@")) {
+                userToGetKarmaName = message.get(1).replace("@", "");
+            }
+            Follower userToGetKarma = followerService.findByDisplayName(userToGetKarmaName);
+            if (userToGetKarma == null) {
+                sendMessageToChannelChat("Пользователь " + userToGetKarmaName + " не найден, упс!", CommandPermission.EVERYONE);
+                return;
+            }
+            Karma usersKarma = karmaService.findByFollower(userToGetKarma);
+            if (usersKarma == null) {
+                sendMessageToChannelChat("Пользователь " + userToGetKarmaName + " не найден в базе кармы, упс!", CommandPermission.EVERYONE);
+                return;
+            }
+            sendMessageToChannelChat("У " + userToGetKarmaName + " " + usersKarma.getKarma().toString() + " кармы!", CommandPermission.EVERYONE);
+
+
+        } else if (message.size() == 3) {
+            String action = message.get(2);
+            if (!action.contains("+") && !action.contains("-")) {
+                sendMessageToChannelChat("@" + event.getUser().getName() + " для изменения кармы используй + или - третьим параметром!", CommandPermission.EVERYONE);
+                return;
+            }
+
+            Karma userToSetKarmaTimer = karmaService.findByFollower(followerService.findById(Long.parseLong(event.getUser().getId())));
+            if(Instant.now().isBefore(userToSetKarmaTimer.getChangedSomeoneKarmaLastTime().plusSeconds(600))){
+                sendAdminMessage("@"+event.getUser().getName()+", ты уже недавно ставил карму!");
+                return;
+            }
+
+            String userToAddKarmaName = message.get(1);
+            if (userToAddKarmaName.contains("@")) {
+                userToAddKarmaName = message.get(1).replace("@", "");
+            }
+
+            if (userToAddKarmaName.equalsIgnoreCase(event.getUser().getName())) {
+                sendMessageToChannelChat("@" + event.getUser().getName() + ", лезешь в свою карму?", CommandPermission.EVERYONE);
+                return;
+            }
+
+            Follower userToAddKarma = followerService.findByDisplayName(userToAddKarmaName);
+            if (userToAddKarma == null) {
+                sendMessageToChannelChat("Пользователь " + userToAddKarmaName + " не найден, упс!", CommandPermission.EVERYONE);
+                return;
+            }
+            Karma usersKarma = karmaService.findByFollower(userToAddKarma);
+            if (usersKarma == null) {
+                sendMessageToChannelChat("Пользователь " + userToAddKarmaName + " не найден в базе кармы, упс!", CommandPermission.EVERYONE);
+                return;
+            }
+
+            if (action.contains("+")) {
+                usersKarma.setKarma(usersKarma.getKarma() + 1);
+                sendMessageToChannelChat(userToAddKarmaName + " получил плюсик к карме!", CommandPermission.EVERYONE);
+            } else if (action.contains("-")) {
+                usersKarma.setKarma(usersKarma.getKarma() - 1);
+                sendMessageToChannelChat(userToAddKarmaName + " словил минус к карме", CommandPermission.EVERYONE);
+            }
+            userToSetKarmaTimer.setChangedSomeoneKarmaLastTime(Instant.now());
+            karmaRepo.save(userToSetKarmaTimer);
+            karmaRepo.save(usersKarma);
+        }
+    }
+
+    void handleRebaseMessage(ChannelMessageEvent event) {
+        List<String> message = List.of(event.getMessage().split(" "));
+        if (message.size() == 1) {
+            return;
+        }
+
+        if (message.size() > 2) {
+            return;
+        }
+        String arg = message.get(1);
+
+        switch (arg) {
+            case "f": {
+                dbTablesHandler.rebaseFollowersDatabase();
+                break;
+            }
+            case "karma": {
+                dbTablesHandler.rebaseKarmaDatabase();
+                break;
+            }
+            case "all": {
+                dbTablesHandler.rebaseFollowersDatabase();
+                dbTablesHandler.rebaseKarmaDatabase();
+                break;
+            }
+            default:{
+                return;
+            }
+        }
+
+
+    }
+
     void handleDuelMessageStat(ChannelMessageEvent event) {
         DuelistStats duelist = duelistStatService.getAllByUserId(Long.valueOf(event.getUser().getId()));
         sendMessageToChannelChat("@" + duelist.getFollower().getUsername() + " побед в дуэли: " +
                 +duelist.getWins() + ", проигрышей: " + duelist.getLoses() + ", побед подряд: "
-                +duelist.getWinstreak()+", лучшая серия побед: " + duelist.getWinstreakMax(), CommandPermission.EVERYONE);
+                + duelist.getWinstreak() + ", лучшая серия побед: " + duelist.getWinstreakMax(), CommandPermission.EVERYONE);
     }
 
     void handleDuelMessage(ChannelMessageEvent event) {
@@ -248,9 +372,9 @@ public class ChatEventHandler extends Thread {
 
             duelistTwo = duelist;
 
-            if(duelistTwo.getFollower().getUserId().equals(duelistOne.getFollower().getUserId())){
-                sendMessageToChannelChat("@"+duelistTwo.getFollower().getUsername() + " пытался " +
-                        "подуэлиться с зеркалом! Итог: разбитое зеркало и лицо дуэлянта.",CommandPermission.EVERYONE);
+            if (duelistTwo.getFollower().getUserId().equals(duelistOne.getFollower().getUserId())) {
+                sendMessageToChannelChat("@" + duelistTwo.getFollower().getUsername() + " пытался " +
+                        "подуэлиться с зеркалом! Итог: разбитое зеркало и лицо дуэлянта.", CommandPermission.EVERYONE);
                 duelistOne = null;
                 duelistTwo = null;
                 firstDuelistTriesToFindSomeoneTime = Instant.EPOCH;
@@ -258,8 +382,8 @@ public class ChatEventHandler extends Thread {
             }
 
             isHandlingDuel = true;
-            sendMessageToChatIgnoreTimer("@" + duelistTwo.getFollower().getUsername()  + " отвечает на вызов @"
-                    + duelistOne.getFollower().getUsername()  + "! Начинаем дуэль!");
+            sendMessageToChatIgnoreTimer("@" + duelistTwo.getFollower().getUsername() + " отвечает на вызов @"
+                    + duelistOne.getFollower().getUsername() + "! Начинаем дуэль!");
 
             try {
                 Thread.sleep(1000);
@@ -273,24 +397,24 @@ public class ChatEventHandler extends Thread {
                 double result = Math.random();
                 if (result < 0.5) {
                     sendMessageToChatIgnoreTimer("@" + duelistOne.getFollower().getUsername() + " выигрывает дуэль! " +
-                            "@" + duelistTwo.getFollower().getUsername()  + " падает замертво  NOOOO ");
-                    banUserByBot(duelistTwo.getFollower().getUserId().toString(),60,"Проиграл в дуэль");
+                            "@" + duelistTwo.getFollower().getUsername() + " падает замертво  NOOOO ");
+                    banUserByBot(duelistTwo.getFollower().getUserId().toString(), 60, "Проиграл в дуэль");
                     duelistOne.setWins(duelistOne.getWins() + 1);
                     duelistTwo.setLoses(duelistTwo.getLoses() + 1);
-                    duelistOne.setWinstreak(duelistOne.getWinstreak()+1);
-                    if(duelistOne.getWinstreakMax()<duelistOne.getWinstreak()){
+                    duelistOne.setWinstreak(duelistOne.getWinstreak() + 1);
+                    if (duelistOne.getWinstreakMax() < duelistOne.getWinstreak()) {
                         duelistOne.setWinstreakMax(duelistOne.getWinstreak());
                     }
 
                     duelistTwo.setWinstreak(0);
                 } else {
-                    sendMessageToChatIgnoreTimer("@" + duelistTwo.getFollower().getUsername()  + " делает выстрел первым! " +
-                            "@" + duelistOne.getFollower().getUsername()  + " падает замертво  DIESOFCRINGE ");
-                    banUserByBot(duelistOne.getFollower().getUserId().toString(),60,"Проиграл в дуэль");
+                    sendMessageToChatIgnoreTimer("@" + duelistTwo.getFollower().getUsername() + " делает выстрел первым! " +
+                            "@" + duelistOne.getFollower().getUsername() + " падает замертво  DIESOFCRINGE ");
+                    banUserByBot(duelistOne.getFollower().getUserId().toString(), 60, "Проиграл в дуэль");
                     duelistTwo.setWins(duelistTwo.getWins() + 1);
                     duelistOne.setLoses(duelistOne.getLoses() + 1);
-                    duelistTwo.setWinstreak(duelistTwo.getWinstreak()+1);
-                    if(duelistTwo.getWinstreakMax()<duelistTwo.getWinstreak()){
+                    duelistTwo.setWinstreak(duelistTwo.getWinstreak() + 1);
+                    if (duelistTwo.getWinstreakMax() < duelistTwo.getWinstreak()) {
                         duelistTwo.setWinstreakMax(duelistTwo.getWinstreak());
                     }
 
@@ -310,27 +434,28 @@ public class ChatEventHandler extends Thread {
         }
     }
 
-    void handleIqMessageNow(ChannelMessageEvent event){
+    void handleIqMessageNow(ChannelMessageEvent event) {
         Iq iq = iqService.getIqEntityByUserId(Long.valueOf(event.getUser().getId()));
-        if (iq == null){
+        if (iq == null) {
             handleIqMessage(event);
-        } else{
-            sendMessageToChannelChat("@" + event.getUser().getName() + ", твой последний замер показал " + iq.getIq()+ " iq WHAT ", CommandPermission.EVERYONE);
+        } else {
+            sendMessageToChannelChat("@" + event.getUser().getName() + ", твой последний замер показал " + iq.getIq() + " iq WHAT ", CommandPermission.EVERYONE);
         }
     }
+
     void handleIqMessage(@NotNull ChannelMessageEvent event) {
         Iq iq = iqService.getIqEntityByUserId(Long.valueOf(event.getUser().getId()));
 
         if (iq == null) {
             Integer newIq = (int) Math.floor(MIN_IQ + (int) (Math.random() * (MAX_IQ)));
             Follower follower = followerService.findById(Long.valueOf(event.getUser().getId()));
-            if(follower==null){
-                sendAdminMessage("Тебя нет в списке фолловеров! @"+event.getUser().getName());
+            if (follower == null) {
+                sendAdminMessage("Тебя нет в списке фолловеров! @" + event.getUser().getName());
                 return;
             }
 
             iq = iqService.insertIqEntity(new Iq(null, followerService.findById(Long.valueOf(event.getUser().getId())),
-                    newIq,Instant.now(),false));
+                    newIq, Instant.now(), false));
             sendMessageToChannelChat("@" + event.getUser().getName() + " Вау! Твой айкью сегодня " + iq.getIq() + "! С первым замером! PepegaAim", CommandPermission.EVERYONE);
             return;
         } else {
@@ -343,14 +468,14 @@ public class ChatEventHandler extends Thread {
                 iq = iqService.updateIqEntity(iq);
 
                 if (iq.getIq() == MAX_IQ) {
-                    sendMessageToChannelChat("@" + event.getUser().getName() + " Нифига себе! Айкьюметр показывает " + iq.getIq()+ "! Дальше расти некуда! peepoClap", CommandPermission.EVERYONE);
+                    sendMessageToChannelChat("@" + event.getUser().getName() + " Нифига себе! Айкьюметр показывает " + iq.getIq() + "! Дальше расти некуда! peepoClap", CommandPermission.EVERYONE);
                     return;
                 }
 
                 if (size < iq.getIq()) {
                     sendMessageToChannelChat("@" + event.getUser().getName() + " Вау! Айкьюметр показывает " + iq.getIq() + "! Ты стал умнее! widepeepoHappy До этого было " + size, CommandPermission.EVERYONE);
                 } else if (size > iq.getIq()) {
-                    sendMessageToChannelChat("@" + event.getUser().getName() + " Мнда. Ты расслабился. Айкьюметр показывает " + iq.getIq()+ "!  А было " + size + " widepeepoSad", CommandPermission.EVERYONE);
+                    sendMessageToChannelChat("@" + event.getUser().getName() + " Мнда. Ты расслабился. Айкьюметр показывает " + iq.getIq() + "!  А было " + size + " widepeepoSad", CommandPermission.EVERYONE);
                 } else {
                     sendMessageToChannelChat("@" + event.getUser().getName() + " Айкьюметр показывает " + iq.getIq() + ". Ничего не поменялось !  peepoGiggles", CommandPermission.EVERYONE);
                 }
@@ -383,8 +508,22 @@ public class ChatEventHandler extends Thread {
         twitchClient.getChat().sendMessage(twitchClientConfig.getChannelName(), message);
     }
 
-    public void banUserByBot(String id, Integer duration, String reason){
-        twitchClient.getHelix().banUser(twitchClientConfig.getBotTokenAccess(),twitchClientConfig.getChannelId(),twitchClientConfig.getBotNameToId(),
-                BanUserInput.builder().build().withUserId(id).withDuration(duration).withReason(reason)).execute();
+    public void deleteMessageFromChat(ChannelMessageEvent event) {
+        try {
+            twitchClient.getHelix().deleteChatMessages(twitchClientConfig.getBotTokenAccess(), event.getChannel().getId(), twitchClientConfig.getBotNameToId(), event.getMessageEvent().getMessageId().orElse(null)).execute();
+        } catch (Exception e) {
+            log.error("НЕУДАЧНАЯ ПОПЫТКА УДАЛИТЬ СООБЩЕНИЕ" + event.getUser().getName());
+        }
+
+
+    }
+
+    public void banUserByBot(String id, Integer duration, String reason) {
+        try {
+            twitchClient.getHelix().banUser(twitchClientConfig.getBotTokenAccess(), twitchClientConfig.getChannelId(), twitchClientConfig.getBotNameToId(),
+                    BanUserInput.builder().build().withUserId(id).withDuration(duration).withReason(reason)).execute();
+        } catch (Exception e) {
+            log.error("Tried to ban " + id + reason + " without success");
+        }
     }
 }

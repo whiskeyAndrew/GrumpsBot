@@ -6,6 +6,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
 import javax.transaction.Transactional;
+import java.util.List;
 
 @Transactional
 @RequiredArgsConstructor
@@ -19,7 +20,9 @@ public class FollowerService {
     public Follower insertNewFollower(Follower follower){
         return jpa.saveAndFlush(follower);
     }
-
+    public List<Follower> findAll(){
+        return jpa.findAll();
+    }
     public Follower saveFollower(Follower follower){
         return jpa.save(follower);
     }

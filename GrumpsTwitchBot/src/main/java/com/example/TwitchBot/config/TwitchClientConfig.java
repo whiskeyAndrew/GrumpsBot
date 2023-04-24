@@ -6,6 +6,7 @@ import com.github.philippheuer.events4j.simple.SimpleEventHandler;
 import com.github.twitch4j.TwitchClient;
 import com.github.twitch4j.TwitchClientBuilder;
 import lombok.Getter;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -14,6 +15,7 @@ import org.springframework.core.task.TaskExecutor;
 
 @Configuration
 @Getter
+@Slf4j
 public class TwitchClientConfig {
 
     String identityProvider = "twitch";
@@ -41,8 +43,9 @@ public class TwitchClientConfig {
     OAuth2Credential credential;
 
     @Bean
+
     public TwitchClient twitchClient(){
-        System.out.println("Init");
+        log.info("Initializing twitch client");
 
         credential = new OAuth2Credential(identityProvider, botTokenAccess);
 

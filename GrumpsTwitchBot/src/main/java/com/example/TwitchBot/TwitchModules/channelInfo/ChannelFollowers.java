@@ -22,14 +22,11 @@ import java.util.List;
 public class ChannelFollowers {
     private final TwitchClient twitchClient;
     private final TwitchClientConfig twitchClientConfig;
-    private List<Follow> followers;
+    //private List<Follow> followers;
     private  final FollowerService followerService;
-    @PostConstruct
-    public void init(){
-        followers = new ArrayList<>();
-        updateFollowersDB();
-    }
-    public void updateFollowersDB(){
+
+    public List<Follow> getAllFollowersFromTwitch(){
+        List<Follow> followers = new ArrayList<>();
         String pagination = null;
         while(true) {
             FollowList followersPage = twitchClient.getHelix().getFollowers(twitchClientConfig.getChannelTokenAccess(), null, twitchClientConfig.getChannelId(), pagination, 100).execute();
@@ -40,9 +37,6 @@ public class ChannelFollowers {
                 break;
             }
         }
-
-        followers.forEach(e->followerService.saveFollower(new Follower(Long.parseLong(e.getFromId()),e.getFromLogin(),e.getFromName(),e.getFollowedAtInstant())));
-        followerService.saveFollower(new Follower(Long.parseLong(twitchClientConfig.getChannelId()),"dieorpie","Dieorpie", Instant.EPOCH));
-        log.info("Updated Followers DB");
+        return followers;
     }
 }
