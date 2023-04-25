@@ -6,6 +6,7 @@ import com.example.TwitchBot.entity.OnScreenOverlayData;
 import com.github.twitch4j.TwitchClient;
 import com.github.twitch4j.pubsub.events.RewardRedeemedEvent;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
 import javax.annotation.PostConstruct;
@@ -15,6 +16,7 @@ import java.util.Deque;
 
 @Component
 @RequiredArgsConstructor
+@Slf4j
 public class TwitchPointsEvents extends Thread{
 
     private final TwitchClient twitchClient;
@@ -41,13 +43,18 @@ public class TwitchPointsEvents extends Thread{
     public void run(){
         twitchClient.getPubSub().listenForChannelPointsRedemptionEvents(twitchClientConfig.getCredential(),twitchClientConfig.getChannelId());
         twitchClient.getEventManager().onEvent(RewardRedeemedEvent.class,event -> {
+            log.info("--- POINT REWARD BY "+ event.getRedemption().getUser().getDisplayName() + ", " + event.getRedemption().getReward().getTitle()+" ---");
+
             if(event.getRedemption().getReward().getTitle().equals("Попробовать оффнуть компьютер")){
                 tryToOffPC(event);
+                return;
             }
-            else             if(event.getRedemption().getReward().getTitle().equals("Боньк")){
+
+            if(event.getRedemption().getReward().getTitle().equals("Боньк")){
                 toShowQueue.add(new OnScreenOverlayData("https://i.redd.it/wyptzansk7m61.png","5",""));
+                return;
             }
-            System.out.println(event);
+
         } );
     }
 

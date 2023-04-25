@@ -10,31 +10,24 @@ import com.github.twitch4j.TwitchClient;
 import com.github.twitch4j.chat.events.channel.ChannelMessageEvent;
 import com.github.twitch4j.common.enums.CommandPermission;
 import com.github.twitch4j.helix.domain.BanUserInput;
-import lombok.Getter;
 import lombok.RequiredArgsConstructor;
-import lombok.Setter;
 import lombok.extern.slf4j.Slf4j;
-import org.jetbrains.annotations.NotNull;
 import org.springframework.stereotype.Component;
 
 import javax.annotation.PostConstruct;
 import javax.annotation.PreDestroy;
 import java.io.UnsupportedEncodingException;
 import java.net.MalformedURLException;
-import java.security.Permission;
 import java.time.Instant;
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
 
 //В идеале бы бОльшую часть кода раскидать по сервисам отсюда, к примеру обработку IQ или Karma сообщений стоило бы перекинуть на сервисы
 //Но я поздновато об этом подумал и времени пока нет рефакторить, оставлю возможно на потом
 @Component
-@Setter
-@Getter
 @RequiredArgsConstructor
 @Slf4j
 public class ChatEventHandler extends Thread {
@@ -50,14 +43,15 @@ public class ChatEventHandler extends Thread {
     private final FollowerService followerService;
     private final DuelistStatService duelistStatService;
     private final KarmaService karmaService;
-    private final static int MESSAGE_TIMEOUT_EVERYONE = 1;
     //Timeout, need to prevent chat spam from bot (maybe not working right now)
+    private final static int MESSAGE_TIMEOUT_EVERYONE = 1;
+
     Instant lastMessageTime;
 
     //Iq checker
     private final IqService iqService;
     private final static int MAX_IQ = 200;
-    private final static int MIN_IQ = 3;
+    private final static int MIN_IQ = 1;
 
     //Duels
     Instant firstDuelistTriesToFindSomeoneTime;
@@ -72,6 +66,7 @@ public class ChatEventHandler extends Thread {
         lastMessageTime = Instant.now();
     }
 
+    //Пока не работает
     @PreDestroy
     private void appCloseMessage() {
         sendMessageToChatIgnoreTimer("Я УПАЛ");
@@ -97,9 +92,7 @@ public class ChatEventHandler extends Thread {
                 } else {
                     System.out.println("No access to command");
                 }
-
                 return;
-
             }
 
             if (event.getMessage().startsWith("!ftm")) {
@@ -110,16 +103,18 @@ public class ChatEventHandler extends Thread {
 
                 Instant userFollowed = follower.getFollowedAt();
                 ZonedDateTime dateTime = userFollowed.atZone(ZoneId.systemDefault());
-                Long daysFollowed = userFollowed.until(Instant.now(), ChronoUnit.DAYS);
+                long daysFollowed = userFollowed.until(Instant.now(), ChronoUnit.DAYS);
                 String answer = "@" + event.getUser().getName() + " у нас с " + dateTime.getDayOfMonth() + "." + dateTime.getMonth().getValue() + "." + dateTime.getYear() + " (" + daysFollowed + " days) ";
                 sendMessageToChannelChat(answer, CommandPermission.EVERYONE);
             }
+
             if (event.getMessage().startsWith("бан мне")) {
                 sendMessageToChannelChat("ладно", CommandPermission.EVERYONE);
                 banUserByBot(event.getUser().getId(), 60, "Попросил самобан");
+                return;
             }
-            if (event.getMessage().startsWith("!rebase")) {
 
+            if (event.getMessage().startsWith("!rebase")) {
                 if (event.getPermissions().contains(CommandPermission.MODERATOR)) {
                     handleRebaseMessage(event);
                 }
@@ -153,16 +148,9 @@ public class ChatEventHandler extends Thread {
 
             //е или ё скипаем
             if (event.getMessage().startsWith("!iq мо") || event.getMessage().startsWith("!айкью мо")) {
-                handleIqMessageNow(event);
+                sendMessageToChannelChat("!iq lock блокирует или разблокирует нынешний твой IQ. Если он заблокирован, то команда !iq не будет обновлять твое IQ",CommandPermission.EVERYONE);
                 return;
             }
-
-            /*
-            if (event.getMessage().startsWith("!iq lock")){
-
-                return;
-            }
-            */
 
             if (event.getMessage().startsWith("!iq") || event.getMessage().startsWith("!айкью")) {
                 handleIqMessage(event);
@@ -170,9 +158,7 @@ public class ChatEventHandler extends Thread {
             }
 
             if (event.getMessage().startsWith("!карма")) {
-                //sendMessageToChannelChat("Карма временно оффнута",CommandPermission.EVERYONE);
-                handleKarmaMessaage(event);
-                //handleKarmaMessage(event.getMessage(), event.getUser());
+                handleKarmaMessage(event);
                 return;
             }
 
@@ -197,46 +183,7 @@ public class ChatEventHandler extends Thread {
         });
     }
 
-    /*
-    void handleKarmaMessage(String message, EventUser user) {
-
-        List<String> strings = List.of(message.split(" "));
-        Follower follower = followerService.findById(Long.valueOf(user.getId()));
-        if (strings.size() == 1) {
-            sendMessageToChannelChat("@" + user.getName() + ", твоя карма сейчас: " + follower.getKarma(), CommandPermission.EVERYONE);
-            return;
-        } else if (strings.size() != 3) {
-            return;
-        }
-
-        if (follower.getChangedSomeonesKarmaLastTime().plusSeconds(600).isAfter(Instant.now())) {
-            sendMessageToChannelChat("Карму можно давать только раз в десять минут!", CommandPermission.EVERYONE);
-            return;
-        }
-        if (follower.getDisplayName().equalsIgnoreCase(strings.get(1).replaceAll("@", ""))) {
-            sendMessageToChannelChat("Ты что, пытался изменить себе карму???  Susge", CommandPermission.EVERYONE);
-            return;
-        }
-        Follower followerToChangeKarma = followerService.findByDisplayName(strings.get(1).replaceAll("@", ""));
-        if (followerToChangeKarma == null) {
-            sendMessageToChannelChat("Таких людей в фолловерах у нас нет!", CommandPermission.EVERYONE);
-            return;
-        }
-
-        followerOld.setChangedSomeonesKarmaLastTime(Instant.now());
-        followerService.saveFollower(followerOld);
-        if (strings.get(2).contains("+")) {
-            followerOldToChangeKarma.setKarma(followerOldToChangeKarma.getKarma() + 1);
-        } else if (strings.get(2).contains("-")) {
-            followerOldToChangeKarma.setKarma(followerOldToChangeKarma.getKarma() - 1);
-        }
-        followerService.saveFollower(followerOldToChangeKarma);
-        sendMessageToChannelChat("Карма " + followerOldToChangeKarma.getDisplayName() + " изменена!", CommandPermission.EVERYONE);
-
-    }
-*/
-
-    void handleKarmaMessaage(ChannelMessageEvent event) {
+    void handleKarmaMessage(ChannelMessageEvent event) {
         List<String> message = new ArrayList<>(List.of(event.getMessage().split(" ")));
 
         if (message.size() == 1) {
@@ -276,8 +223,8 @@ public class ChatEventHandler extends Thread {
             }
 
             Karma userToSetKarmaTimer = karmaService.findByFollower(followerService.findById(Long.parseLong(event.getUser().getId())));
-            if(Instant.now().isBefore(userToSetKarmaTimer.getChangedSomeoneKarmaLastTime().plusSeconds(600))){
-                sendAdminMessage("@"+event.getUser().getName()+", ты уже недавно ставил карму!");
+            if (Instant.now().isBefore(userToSetKarmaTimer.getChangedSomeoneKarmaLastTime().plusSeconds(600))) {
+                sendAdminMessage("@" + event.getUser().getName() + ", ты уже недавно ставил карму!");
                 return;
             }
 
@@ -296,6 +243,7 @@ public class ChatEventHandler extends Thread {
                 sendMessageToChannelChat("Пользователь " + userToAddKarmaName + " не найден, упс!", CommandPermission.EVERYONE);
                 return;
             }
+
             Karma usersKarma = karmaService.findByFollower(userToAddKarma);
             if (usersKarma == null) {
                 sendMessageToChannelChat("Пользователь " + userToAddKarmaName + " не найден в базе кармы, упс!", CommandPermission.EVERYONE);
@@ -324,8 +272,8 @@ public class ChatEventHandler extends Thread {
         if (message.size() > 2) {
             return;
         }
-        String arg = message.get(1);
 
+        String arg = message.get(1);
         switch (arg) {
             case "f": {
                 dbTablesHandler.rebaseFollowersDatabase();
@@ -340,12 +288,10 @@ public class ChatEventHandler extends Thread {
                 dbTablesHandler.rebaseKarmaDatabase();
                 break;
             }
-            default:{
+            default: {
                 return;
             }
         }
-
-
     }
 
     void handleDuelMessageStat(ChannelMessageEvent event) {
@@ -434,16 +380,7 @@ public class ChatEventHandler extends Thread {
         }
     }
 
-    void handleIqMessageNow(ChannelMessageEvent event) {
-        Iq iq = iqService.getIqEntityByUserId(Long.valueOf(event.getUser().getId()));
-        if (iq == null) {
-            handleIqMessage(event);
-        } else {
-            sendMessageToChannelChat("@" + event.getUser().getName() + ", твой последний замер показал " + iq.getIq() + " iq WHAT ", CommandPermission.EVERYONE);
-        }
-    }
-
-    void handleIqMessage(@NotNull ChannelMessageEvent event) {
+    void handleIqMessage(ChannelMessageEvent event) {
         Iq iq = iqService.getIqEntityByUserId(Long.valueOf(event.getUser().getId()));
 
         if (iq == null) {
@@ -458,31 +395,48 @@ public class ChatEventHandler extends Thread {
                     newIq, Instant.now(), false));
             sendMessageToChannelChat("@" + event.getUser().getName() + " Вау! Твой айкью сегодня " + iq.getIq() + "! С первым замером! PepegaAim", CommandPermission.EVERYONE);
             return;
-        } else {
-            if (iq.getTime().plusSeconds(48200).isAfter(Instant.now())) {
-                sendMessageToChannelChat("@" + event.getUser().getName() + " Ежедневный замер айкью уже был! NOPERS Айкьюметр показывал " + iq.getIq() + "!", CommandPermission.EVERYONE);
-                return;
-            } else {
-                int size = iq.getIq();
-                iq.setIq((int) Math.floor(Math.random() * (MAX_IQ - MIN_IQ + 1) + MIN_IQ));
-                iq = iqService.updateIqEntity(iq);
-
-                if (iq.getIq() == MAX_IQ) {
-                    sendMessageToChannelChat("@" + event.getUser().getName() + " Нифига себе! Айкьюметр показывает " + iq.getIq() + "! Дальше расти некуда! peepoClap", CommandPermission.EVERYONE);
-                    return;
-                }
-
-                if (size < iq.getIq()) {
-                    sendMessageToChannelChat("@" + event.getUser().getName() + " Вау! Айкьюметр показывает " + iq.getIq() + "! Ты стал умнее! widepeepoHappy До этого было " + size, CommandPermission.EVERYONE);
-                } else if (size > iq.getIq()) {
-                    sendMessageToChannelChat("@" + event.getUser().getName() + " Мнда. Ты расслабился. Айкьюметр показывает " + iq.getIq() + "!  А было " + size + " widepeepoSad", CommandPermission.EVERYONE);
-                } else {
-                    sendMessageToChannelChat("@" + event.getUser().getName() + " Айкьюметр показывает " + iq.getIq() + ". Ничего не поменялось !  peepoGiggles", CommandPermission.EVERYONE);
-                }
-            }
         }
 
+        if (event.getMessage().contains("lock") || event.getMessage().contains("закрепить")) {
+            if (iq.getIsLocked()) {
+                iq.setIsLocked(false);
+                sendMessageToChannelChat("@" + event.getUser().getName() + ", IQ открыт!", CommandPermission.EVERYONE);
+            } else {
+                iq.setIsLocked(true);
+                sendMessageToChannelChat("@" + event.getUser().getName() + ", IQ закрыт!", CommandPermission.EVERYONE);
+            }
+            iqService.save(iq);
+            return;
+        }
+
+        if (iq.getIsLocked()) {
+            sendMessageToChannelChat("@" + event.getUser().getName() + ", твой последний замер показал " + iq.getIq() + " iq WHAT (IQ закреплен)", CommandPermission.EVERYONE);
+            return;
+        }
+
+        if (iq.getTime().plusSeconds(48200).isAfter(Instant.now())) {
+            sendMessageToChannelChat("@" + event.getUser().getName() + " Ежедневный замер айкью уже был! NOPERS Айкьюметр показывал " + iq.getIq() + "!", CommandPermission.EVERYONE);
+            return;
+        }
+
+        int size = iq.getIq();
+        iq.setIq((int) Math.floor(Math.random() * (MAX_IQ - MIN_IQ + 1) + MIN_IQ));
+        iq = iqService.updateIqValue(iq);
+
+        if (iq.getIq() == MAX_IQ) {
+            sendMessageToChannelChat("@" + event.getUser().getName() + " Нифига себе! Айкьюметр показывает " + iq.getIq() + "! Дальше расти некуда! peepoClap", CommandPermission.EVERYONE);
+            return;
+        }
+
+        if (size < iq.getIq()) {
+            sendMessageToChannelChat("@" + event.getUser().getName() + " Вау! Айкьюметр показывает " + iq.getIq() + "! Ты стал умнее! widepeepoHappy До этого было " + size, CommandPermission.EVERYONE);
+        } else if (size > iq.getIq()) {
+            sendMessageToChannelChat("@" + event.getUser().getName() + " Мнда. Ты расслабился. Айкьюметр показывает " + iq.getIq() + "!  А было " + size + " widepeepoSad", CommandPermission.EVERYONE);
+        } else {
+            sendMessageToChannelChat("@" + event.getUser().getName() + " Айкьюметр показывает " + iq.getIq() + ". Ничего не поменялось !  peepoGiggles", CommandPermission.EVERYONE);
+        }
     }
+
 
     public void sendAdminMessage(String message) {
         twitchClient.getChat().sendMessage(twitchClientConfig.getChannelName(), message);
@@ -514,8 +468,6 @@ public class ChatEventHandler extends Thread {
         } catch (Exception e) {
             log.error("НЕУДАЧНАЯ ПОПЫТКА УДАЛИТЬ СООБЩЕНИЕ" + event.getUser().getName());
         }
-
-
     }
 
     public void banUserByBot(String id, Integer duration, String reason) {

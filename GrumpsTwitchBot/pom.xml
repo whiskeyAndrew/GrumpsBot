@@ -99,6 +99,7 @@
 				</configuration>
 			</plugin>
 		</plugins>
+		<finalName>GrumpsTwitchBot</finalName>
 	</build>
 
 </project>

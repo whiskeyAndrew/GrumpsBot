@@ -43,7 +43,6 @@ public class TwitchClientConfig {
     OAuth2Credential credential;
 
     @Bean
-
     public TwitchClient twitchClient(){
         log.info("Initializing twitch client");
 

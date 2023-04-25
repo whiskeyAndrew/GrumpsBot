@@ -21,8 +21,10 @@ public class IqService {
         return jpa.saveAndFlush(iq);
     }
 
-
-    public Iq updateIqEntity(Iq iq){
+    public Iq save(Iq iq){
+        return jpa.save(iq);
+    }
+    public Iq updateIqValue(Iq iq){
         Iq iqToUpdate = jpa.getByFollower(iq.getFollower());
         iqToUpdate.setTime(Instant.now());
         iqToUpdate.setIq(iq.getIq());
